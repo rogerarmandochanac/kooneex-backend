@@ -63,5 +63,4 @@ El sistema utiliza los siguientes eventos principales de socket:
 📄 Licencia
 Este proyecto está bajo la Licencia EULA. Consulta el archivo LICENSE para más detalles.
 Desarrollado por Roger Armando Chan
-¿Te gustaría que añada una sección específica sobre cómo probar los sockets con alguna herramienta o cómo configurar Redis en Docker?
 

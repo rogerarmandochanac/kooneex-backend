@@ -1,0 +1,421 @@
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
+from django.db.models import Q
+
+
+# =========================
+# USUARIO
+# =========================
+class Usuario(AbstractUser):
+    """
+    Modelo de usuario personalizado con roles.
+    """
+
+    class Roles(models.TextChoices):
+        ADMIN = 'admin', 'Administrador'
+        MOTOTAXISTA = 'mototaxista', 'Mototaxista'
+        PASAJERO = 'pasajero', 'Pasajero'
+
+    rol = models.CharField(
+        max_length=20,
+        choices=Roles.choices,
+        default=Roles.PASAJERO
+    )
+    telefono = models.CharField(max_length=15, blank=True, null=True)
+    foto = models.ImageField(upload_to='usuarios/', blank=True, null=True)
+
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['username']),
+            models.Index(fields=['rol']),
+        ]
+
+    def __str__(self):
+        return f"{self.username} ({self.rol})"
+
+    @property
+    def nombre_completo(self):
+        """Devuelve nombre completo o username."""
+        return f"{self.first_name} {self.last_name}".strip() or self.username
+
+
+# =========================
+# TARIFA
+# =========================
+class Tarifa(models.Model):
+    """
+    Configuración de tarifas del sistema.
+    """
+
+    tarifa = models.DecimalField(max_digits=10, decimal_places=2, default=10.0)
+    comision = models.PositiveIntegerField(default=1)
+    activa = models.BooleanField(default=True)
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Tarifa: ${self.tarifa}"
+    
+
+# =========================
+# MOTOTAXI
+# =========================
+class Mototaxi(models.Model):
+    """
+    Representa un mototaxi asociado a un conductor.
+    """
+
+    conductor = models.OneToOneField(
+        'Usuario',
+        on_delete=models.CASCADE,
+        limit_choices_to={'rol': Usuario.Roles.MOTOTAXISTA}
+    )
+    placa = models.CharField(max_length=10)
+    modelo = models.CharField(max_length=50)
+    capacidad = models.PositiveIntegerField(default=4)
+    disponible = models.BooleanField(default=True)
+    latitud = models.FloatField(null=True, blank=True)
+    longitud = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['disponible']),
+            models.Index(fields=['conductor']),
+            models.Index(fields=['latitud', 'longitud']),
+        ]
+
+    def __str__(self):
+        return f"{self.placa} - {self.conductor.username}"
+
+    def actualizar_ubicacion(self, lat, lon):
+        """
+        Actualiza la ubicación del mototaxi.
+        """
+        self.latitud = lat
+        self.longitud = lon
+        self.save(update_fields=['latitud', 'longitud'])
+
+
+# =========================
+# VIAJE
+# =========================
+class Viaje(models.Model):
+    """
+    Representa un viaje solicitado por un pasajero.
+    """
+
+    class Estados(models.TextChoices):
+        PENDIENTE = 'pendiente', 'Pendiente'
+        ACEPTADO = 'aceptado', 'Aceptado'
+        EN_CURSO = 'en_curso', 'En curso'
+        COMPLETADO = 'completado', 'Completado'
+        RECHAZADO = 'rechazado', 'Rechazado'
+
+    pasajero = models.ForeignKey(
+        'Usuario',
+        on_delete=models.CASCADE,
+        related_name='viajes'
+    )
+    mototaxista = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='viajes_mototaxista',
+        limit_choices_to={'rol': Usuario.Roles.MOTOTAXISTA}
+    )
+
+    origen_lat = models.FloatField()
+    origen_lon = models.FloatField()
+    destino_lat = models.FloatField()
+    destino_lon = models.FloatField()
+
+    cantidad_pasajeros = models.PositiveIntegerField(default=1)
+    referencia = models.CharField(max_length=100)
+
+    distancia_km = models.FloatField(null=True, blank=True)
+    costo_estimado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    costo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estados.choices,
+        default=Estados.PENDIENTE
+    )
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-creado_en']
+        indexes = [
+            models.Index(fields=['pasajero', 'estado']),
+            models.Index(fields=['mototaxista', 'estado']),
+            models.Index(fields=['estado', 'creado_en']),
+        ]
+
+    # =========================
+    # LÓGICA DE NEGOCIO
+    # =========================
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # 🔥 ejecuta clean()
+        super().save(*args, **kwargs)
+
+    def aceptar(self, mototaxista):
+        """
+        Permite a un mototaxista aceptar un viaje.
+        Controla concurrencia y disponibilidad.
+        """
+
+        if self.estado != self.Estados.PENDIENTE:
+            raise ValidationError("El viaje no está disponible.")
+
+        if mototaxista.rol != Usuario.Roles.MOTOTAXISTA:
+            raise ValidationError("Usuario no autorizado.")
+
+        with transaction.atomic():
+            # Bloqueo de fila (ANTI race condition)
+            viaje = Viaje.objects.select_for_update().get(pk=self.pk)
+
+            if viaje.estado != self.Estados.PENDIENTE:
+                raise ValidationError("El viaje ya fue tomado.")
+
+            if Viaje.objects.filter(
+                mototaxista=mototaxista,
+                estado__in=[self.Estados.ACEPTADO, self.Estados.EN_CURSO]
+            ).exists():
+                raise ValidationError("El mototaxista ya tiene un viaje activo.")
+
+            viaje.estado = self.Estados.ACEPTADO
+            viaje.mototaxista = mototaxista
+            viaje.save()
+
+            Mototaxi.objects.filter(conductor=mototaxista).update(disponible=False)
+
+    def puede_eliminarse(self):
+        return self.estado in [self.Estados.PENDIENTE, self.Estados.RECHAZADO]
+
+    def iniciar(self):
+        if self.estado != "aceptado":
+            raise ValidationError("Solo viajes aceptados pueden iniciar.")
+        
+        self.estado = "en_curso"
+        self.save()
+
+    def eliminar(self):
+        """
+        Elimina el viaje si está permitido.
+        """
+        if not self.puede_eliminarse():
+            raise ValidationError("No se puede eliminar este viaje.")
+        self.delete()
+    
+    def completar(self, usuario):
+        if self.estado not in ["en_curso", "aceptado"]:
+            raise ValidationError("Estado inválido.")
+
+        self.estado = "completado"
+        self.save()
+
+        if usuario.rol == "mototaxista" and self.mototaxista == usuario:
+            try:
+                mototaxi = Mototaxi.objects.get(conductor=usuario)
+                mototaxi.disponible = True
+                mototaxi.save()
+            except Mototaxi.DoesNotExist:
+                pass
+
+        if self.costo_final:
+            Pago.objects.get_or_create(
+                viaje=self,
+                defaults={
+                    "monto": self.costo_final,
+                    "metodo": "efectivo"
+                }
+            )
+    
+    def clean(self):
+        """
+        Validación de negocio:
+        - Un pasajero no puede tener múltiples viajes activos
+        """
+
+        if self.pasajero:
+            tiene_viaje_activo = Viaje.objects.filter(
+                pasajero=self.pasajero,
+                estado__in=['pendiente', 'aceptado', 'en_curso']
+            ).exclude(id=self.id).exists()
+
+            if tiene_viaje_activo:
+                raise ValidationError(
+                    "Ya tienes un viaje activo. Completa o cancela antes de solicitar otro."
+                )
+
+    def calcular_distancia(self):
+        """
+        Calcula la distancia entre origen y destino (Haversine).
+        NO guarda automáticamente.
+        """
+        from math import radians, sin, cos, sqrt, atan2
+
+        lat1, lon1 = radians(self.origen_lat), radians(self.origen_lon)
+        lat2, lon2 = radians(self.destino_lat), radians(self.destino_lon)
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return round(6371.0 * c, 2)
+
+    def __str__(self):
+        return f"Viaje #{self.id} - {self.pasajero.username} ({self.estado})"
+
+# =========================
+# OFERTA
+# =========================
+class Oferta(models.Model):
+    """
+    Representa una oferta de un mototaxista para un viaje.
+    """
+     
+    viaje = models.ForeignKey(Viaje, related_name='ofertas', 
+                              on_delete=models.CASCADE)
+    
+    mototaxista = models.ForeignKey('Usuario', 
+                                    on_delete=models.CASCADE, 
+                                   limit_choices_to={'rol':'mototaxista'})
+    
+    monto = models.DecimalField(max_digits=10, 
+                                decimal_places=2)
+    
+    tiempo_estimado = models.CharField(max_length=50)
+    aceptada = models.BooleanField(default=False)
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['mototaxista', 'aceptada']),
+            models.Index(fields=['viaje', 'aceptada']),
+            models.Index(fields=['creada_en']),
+        ]
+        ordering = ['-creada_en']
+    
+    def aceptar(self):
+        with transaction.atomic():
+            if Oferta.objects.filter(viaje=self.viaje, aceptada=True).exists():
+                raise ValidationError("Ya hay una oferta aceptada.")
+
+            self.aceptada = True
+            self.save(update_fields=['aceptada'])
+
+            # actualizar viaje
+            self.viaje.mototaxista = self.mototaxista
+            self.viaje.costo_final = self.monto
+            self.viaje.estado = 'aceptado'
+            self.viaje.save()
+
+            # rechazar otras
+            Oferta.objects.filter(viaje=self.viaje).exclude(pk=self.pk).update(aceptada=False)
+
+            # actualizar disponibilidad
+            Mototaxi.objects.filter(conductor=self.mototaxista).update(disponible=False)
+    
+    def calcular_distancia_total(self):
+        """
+        Calcula la distancia total del servicio:
+        - Mototaxista → Origen del viaje
+        - Origen → Destino
+        """
+
+        from .utils import calcular_distancia
+
+        viaje = self.viaje
+        moto = self.mototaxista
+
+        # 1️⃣ Mototaxi → origen
+        d1 = calcular_distancia(
+            moto.lat,
+            moto.lon,
+            viaje.origen_lat,
+            viaje.origen_lon
+        )
+
+        # 2️⃣ Origen → destino
+        d2 = calcular_distancia(
+            viaje.origen_lat,
+            viaje.origen_lon,
+            viaje.destino_lat,
+            viaje.destino_lon
+        )
+
+        return d1 + d2
+
+    def save(self, *args, **kwargs):
+        self.distancia_km = self.calcular_distancia_total()
+        super().save(*args, **kwargs)
+    
+    def clean(self):
+        """
+        Validaciones de negocio para evitar:
+        - múltiples ofertas activas
+        - mototaxistas ocupados
+        - ofertas en viajes no disponibles
+        """
+
+        if not self.mototaxista:
+            return
+
+        # 🚨 Validar rol
+        if self.mototaxista.rol != 'mototaxista':
+            raise ValidationError("Solo mototaxistas pueden hacer ofertas.")
+
+        # 🚨 Validar que el viaje esté disponible
+        if self.viaje and self.viaje.estado != 'pendiente':
+            raise ValidationError("Este viaje ya no está disponible.")
+
+        # 🚨 Validar actividad (tu lógica original)
+        tiene_actividad = Viaje.objects.filter(
+            Q(mototaxista=self.mototaxista, estado__in=['aceptado', 'en_curso']) |
+            Q(ofertas__mototaxista=self.mototaxista, ofertas__viaje__estado='pendiente')
+        ).exclude(pk=self.viaje.pk if self.viaje else None).exists()
+
+        if tiene_actividad:
+            raise ValidationError("Ya tienes una oferta activa o viaje en curso.")
+
+        if not self.mototaxista.lat or not self.mototaxista.lon:
+            raise ValidationError(
+                "El mototaxista debe tener ubicación actual"
+            )
+
+    def __str__(self):
+        return f"Oferta ${self.monto} por {self.mototaxista.username}"
+
+
+# =========================
+# PAGO
+# =========================
+class Pago(models.Model):
+    """
+    Representa el pago realizado al mototaxista de parte del pasajero
+    aun no impletementado.
+    """
+
+    viaje = models.OneToOneField(Viaje, on_delete=models.CASCADE)
+    monto = models.DecimalField(max_digits=8, decimal_places=2)
+    metodo = models.CharField(max_length=50, 
+                             choices=[('efectivo', 'Efectivo'), ('tarjeta', 'Tarjeta')], 
+                             default='efectivo')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['viaje']),
+        ]
+
+    def __str__(self):
+        return f"Pago de ${self.monto} por {self.viaje}"

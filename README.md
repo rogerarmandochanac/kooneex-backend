@@ -1,4 +1,4 @@
-#Kooneex Backend 🛺
+Kooneex Backend 🛺
 
 Backend robusto para una plataforma de mototaxis estilo Uber, desarrollado con Django y Django Channels para comunicación en tiempo real. 
 

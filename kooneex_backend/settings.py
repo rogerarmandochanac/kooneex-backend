@@ -35,6 +35,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+#Production
+# DEBUG = False
+
+# ALLOWED_HOSTS = ["*"]
+
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 ASGI_APPLICATION = "kooneex_backend.asgi.application"
 
 

@@ -106,6 +106,7 @@ class ViajeSerializer(serializers.ModelSerializer):
     ofertas = OfertaSerializer(many=True, read_only=True)
     distancia_km = serializers.SerializerMethodField()
     pasajero_foto = serializers.SerializerMethodField()
+    pasajero_telefono = serializers.SerializerMethodField()
 
     class Meta:
         model = Viaje
@@ -113,7 +114,7 @@ class ViajeSerializer(serializers.ModelSerializer):
             'id', 'origen_lat', 'origen_lon', 'destino_lat', 'destino_lon',
             'cantidad_pasajeros', 'costo_estimado', 'costo_final', 'estado', 
             'pasajero_nombre', 'mototaxista_nombre', 'ofertas_count', 'ofertas', 
-            'distancia_km', 'referencia', 'pasajero_foto'
+            'distancia_km', 'referencia', 'pasajero_foto', 'pasajero_telefono'
         ]
         read_only_fields = ['pasajero']
     
@@ -144,7 +145,17 @@ class ViajeSerializer(serializers.ModelSerializer):
         return round(d1 + d2, 2)
     
     def get_pasajero_foto(self, obj):
-        return construir_url_imagen(self.context.get("request"), obj.pasajero.foto)
+        request = self.context.get("request")
+        
+        if not obj.pasajero or not obj.pasajero.foto:
+            return construir_url_imagen(request, "default.png")  # 👈 imagen por defecto
+        
+        return construir_url_imagen(request, obj.pasajero.foto)
+
+    def get_pasajero_telefono(self, obj):
+        if obj.pasajero and obj.pasajero.telefono:
+            return obj.pasajero.telefono
+        return "No disponible"
     
     def create(self, validated_data):
         """
@@ -180,7 +191,7 @@ class ViajeSerializer(serializers.ModelSerializer):
         )
     
     def get_pasajero_nombre(self, obj):
-        return obj.pasajero.username
+        return obj.pasajero.username if obj.pasajero else None
     
     def get_mototaxista_nombre(self, obj):
         return obj.mototaxista.username if obj.mototaxista else None

@@ -115,7 +115,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'kooneex_db',
-        'USER': 'kooneex_admon',
+        'USER': 'kooneex_user',
         'PASSWORD': 'gonzo007',
         'HOST': 'localhost',
         'PORT': '3306',

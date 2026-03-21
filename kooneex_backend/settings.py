@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from pathlib import Path
-
+import firebase_config
 
 MEDIA_URL = '/media/'
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,7 +42,9 @@ ALLOWED_HOSTS = []
 
 # STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# ASGI_APPLICATION = "kooneex_backend.asgi.application"
+#Production
+
+ASGI_APPLICATION = "kooneex_backend.asgi.application"
 
 
 # Application definition

@@ -233,7 +233,6 @@ class ViajeViewSet(viewsets.ModelViewSet):
          
         # 🔔 PUSH NOTIFICATIONS (nuevo)
         mototaxistas = Usuario.objects.filter(rol="mototaxi").exclude(fcm_token__isnull=True)
-
         for moto in mototaxistas:
             if moto.fcm_token:
                 try:

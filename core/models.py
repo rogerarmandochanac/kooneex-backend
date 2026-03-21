@@ -8,6 +8,7 @@ from django.db.models import Q
 # USUARIO
 # =========================
 class Usuario(AbstractUser):
+    fcm_token = models.TextField(null=True, blank=True)
     """
     Modelo de usuario personalizado con roles.
     """

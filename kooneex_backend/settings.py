@@ -31,18 +31,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-sldc92ljym6sxlsk*dz)8x5b7t$y^&1*zmisp8&&9ou=!e(^$v'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
+DEBUG = True
 
-# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = []
 
 #Production
-DEBUG = False
+# DEBUG = False
 
-ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = ["*"]
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-ASGI_APPLICATION = "kooneex_backend.asgi.application"
+# ASGI_APPLICATION = "kooneex_backend.asgi.application"
 
 
 # Application definition
@@ -115,7 +115,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'kooneex_db',
-        'USER': 'kooneex_user',
+        'USER': 'kooneex_admon',
         'PASSWORD': 'gonzo007',
         'HOST': 'localhost',
         'PORT': '3306',

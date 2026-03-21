@@ -22,6 +22,8 @@ from .models import (Usuario,
 
 from django.core.exceptions import ValidationError
 
+from core.utils.notificaciones import enviar_notificacion
+
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -45,6 +47,17 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
+
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def guardar_token(self, request):
+        user = request.user
+        token = request.data.get("token")
+
+        user.fcm_token = token
+        user.save()
+
+        return Response({"status": "token guardado"})
 
     @action(detail=False, methods=['post'])
     def actualizar_ubicacion(self, request):
@@ -217,7 +230,20 @@ class ViajeViewSet(viewsets.ModelViewSet):
         print("📤 Enviando a grupo:", "mototaxistas")
         enviar_evento("mototaxistas", "nuevo_viaje", {"id": viaje.id})
          # 🔥 Enviar evento por WebSocket
+         
+        # 🔔 PUSH NOTIFICATIONS (nuevo)
+        mototaxistas = Usuario.objects.filter(rol="mototaxi").exclude(fcm_token__isnull=True)
 
+        for moto in mototaxistas:
+            if moto.fcm_token:
+                try:
+                    enviar_notificacion(
+                        moto.fcm_token,
+                        "Nuevo viaje disponible 🚕",
+                        "Hay un viaje cerca de ti"
+                    )
+                except Exception as e:
+                    print("Error enviando notificación:", e)
 
     @action(detail=False, methods=['get'])
     def estado_viaje_activo(self, request):

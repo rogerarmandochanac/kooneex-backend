@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from pathlib import Path
+from decouple import config
 import firebase_config
 
 MEDIA_URL = '/media/'
@@ -31,18 +32,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-sldc92ljym6sxlsk*dz)8x5b7t$y^&1*zmisp8&&9ou=!e(^$v'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"] if not DEBUG else []
 
-#Production
-# DEBUG = False
-
-# ALLOWED_HOSTS = ["*"]
-
-# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-#Production
+if not DEBUG:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 ASGI_APPLICATION = "kooneex_backend.asgi.application"
 
@@ -116,11 +111,11 @@ WSGI_APPLICATION = 'kooneex_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'kooneex_db',
-        'USER': 'kooneex_admon',
-        'PASSWORD': 'gonzo007',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
         }

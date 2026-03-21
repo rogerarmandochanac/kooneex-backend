@@ -20,3 +20,5 @@ media/
 .vscode/
 .idea/
 *.swp
+
+firebase_key.json

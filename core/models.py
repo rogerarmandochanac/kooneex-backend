@@ -42,6 +42,12 @@ class Usuario(AbstractUser):
     def nombre_completo(self):
         """Devuelve nombre completo o username."""
         return f"{self.first_name} {self.last_name}".strip() or self.username
+    
+    @property
+    def deuda_total(self):
+        # Suma el monto_comision de todas las comisiones donde pagado=False
+        resultado = self.mis_comisiones.filter(pagado=False).aggregate(total=Sum('monto_comision'))
+        return resultado['total'] or 0.0
 
 
 # =========================
@@ -56,6 +62,7 @@ class Tarifa(models.Model):
     comision = models.PositiveIntegerField(default=1)
     activa = models.BooleanField(default=True)
     creada_en = models.DateTimeField(auto_now_add=True)
+    limite_deuda = models.DecimalField(max_digits=10, decimal_places=2, default=50.0)
 
     def __str__(self):
         return f"Tarifa: ${self.tarifa}"
@@ -234,9 +241,9 @@ class Viaje(models.Model):
         if self.costo_final and self.mototaxista:
             # Obtenemos la tarifa activa para saber cuánto cobrar de comisión
             tarifa_activa = Tarifa.objects.filter(activa=True).last()
-            porcentaje = tarifa_activa.comision if tarifa_activa else 1 # default 1%
-            
-            monto_comision = (self.costo_final * porcentaje) / 100
+            #porcentaje = tarifa_activa.comision if tarifa_activa else 1 # default 1%
+            #monto_comision = (self.costo_final * porcentaje) / 100
+            monto_comision = tarifa_activa.comision
 
             # Creamos el registro de deuda para el mototaxista
             Comision.objects.get_or_create(
@@ -402,6 +409,19 @@ class Oferta(models.Model):
             raise ValidationError(
                 "El mototaxista debe tener ubicación actual"
             )
+        
+        # 🚨 FRENO DE SEGURIDAD: Validación de Deuda
+        if self.mototaxista.rol == 'mototaxista':
+            tarifa_activa = Tarifa.objects.filter(activa=True).last()
+            limite = tarifa_activa.limite_deuda if tarifa_activa else 50.0
+            
+            deuda = self.mototaxista.deuda_total
+            
+            if deuda >= limite:
+                raise ValidationError(
+                    f"Bloqueo por deuda: Debes ${deuda}. "
+                    f"El límite es ${limite}. Paga tus comisiones para seguir ofertando."
+                )
 
     def __str__(self):
         return f"Oferta ${self.monto} por {self.mototaxista.username}"

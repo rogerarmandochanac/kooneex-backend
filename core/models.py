@@ -218,8 +218,9 @@ class Viaje(models.Model):
         if self.estado not in ["en_curso", "aceptado"]:
             raise ValidationError("Estado inválido.")
 
-        self.estado = "completado"
-        self.save()
+        with transaction.atomic():
+            self.estado = "completado"
+            self.save()
 
         if usuario.rol == "mototaxista" and self.mototaxista == usuario:
             try:
@@ -229,12 +230,21 @@ class Viaje(models.Model):
             except Mototaxi.DoesNotExist:
                 pass
 
-        if self.costo_final:
-            Pago.objects.get_or_create(
+        # 🔥 NUEVA LÓGICA DE COMISIÓN
+        if self.costo_final and self.mototaxista:
+            # Obtenemos la tarifa activa para saber cuánto cobrar de comisión
+            tarifa_activa = Tarifa.objects.filter(activa=True).last()
+            porcentaje = tarifa_activa.comision if tarifa_activa else 1 # default 1%
+            
+            monto_comision = (self.costo_final * porcentaje) / 100
+
+            # Creamos el registro de deuda para el mototaxista
+            Comision.objects.get_or_create(
                 viaje=self,
                 defaults={
-                    "monto": self.costo_final,
-                    "metodo": "efectivo"
+                    "mototaxista": self.mototaxista,
+                    "monto_viaje": self.costo_final,
+                    "monto_comision": monto_comision
                 }
             )
     
@@ -420,3 +430,25 @@ class Pago(models.Model):
 
     def __str__(self):
         return f"Pago de ${self.monto} por {self.viaje}"
+
+# =========================
+# COMISION (NUEVO)
+# =========================
+class Comision(models.Model):
+    viaje = models.OneToOneField(Viaje, on_delete=models.CASCADE, related_name='comision_detalle')
+    mototaxista = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='mis_comisiones')
+    monto_viaje = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_comision = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    pagado = models.BooleanField(default=False, help_text="¿El mototaxista ya pagó la comisión a Kooneex?")
+    fecha_pago = models.DateTimeField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Comisión"
+        verbose_name_plural = "Comisiones"
+        ordering = ['-creado_en']
+
+    def __str__(self):
+        estado = "PAGADO" if self.pagado else "PENDIENTE"
+        return f"{self.mototaxista.username} - ${self.monto_comision} ({estado})"

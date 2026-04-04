@@ -3,13 +3,11 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q, Sum
 
-
-
 # =========================
 # USUARIO
 # =========================
 class Usuario(AbstractUser):
-    fcm_token = models.TextField(null=True, blank=True)
+    fcm_token = models.CharField(max_length=255, blank=True, null=True)
     """
     Modelo de usuario personalizado con roles.
     """
@@ -107,13 +105,22 @@ class Mototaxi(models.Model):
         self.longitud = lon
         self.save(update_fields=['latitud', 'longitud'])
 
+# =========================
+# DESTINO
+# =========================
+class Destino(models.Model):
+    nombre = models.CharField(max_length=100)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6)
+
+    def __str__(self):
+        return self.nombre
 
 # =========================
 # VIAJE
 # =========================
 class Viaje(models.Model):
-    """
-    Representa un viaje solicitado por un pasajero.
+    """Representa un viaje solicitado por un pasajero.
     """
 
     class Estados(models.TextChoices):
@@ -136,25 +143,14 @@ class Viaje(models.Model):
         related_name='viajes_mototaxista',
         limit_choices_to={'rol': Usuario.Roles.MOTOTAXISTA}
     )
-
-    origen_lat = models.FloatField()
-    origen_lon = models.FloatField()
-    destino_lat = models.FloatField()
-    destino_lon = models.FloatField()
-
+    origen_lat = models.DecimalField(max_digits=9, decimal_places=6)
+    origen_lon = models.DecimalField(max_digits=9, decimal_places=6)
+    destino = models.ForeignKey(Destino, on_delete=models.CASCADE, related_name="viajes")
     cantidad_pasajeros = models.PositiveIntegerField(default=1)
     referencia = models.CharField(max_length=100)
-
-    distancia_km = models.FloatField(null=True, blank=True)
     costo_estimado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     costo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
-    estado = models.CharField(
-        max_length=20,
-        choices=Estados.choices,
-        default=Estados.PENDIENTE
-    )
-
+    estado = models.CharField(max_length=20, choices=Estados.choices, default=Estados.PENDIENTE)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -170,12 +166,11 @@ class Viaje(models.Model):
     # =========================
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # 🔥 ejecuta clean()
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def aceptar(self, mototaxista):
-        """
-        Permite a un mototaxista aceptar un viaje.
+        """Permite a un mototaxista aceptar un viaje.
         Controla concurrencia y disponibilidad.
         """
 
@@ -186,7 +181,6 @@ class Viaje(models.Model):
             raise ValidationError("Usuario no autorizado.")
 
         with transaction.atomic():
-            # Bloqueo de fila (ANTI race condition)
             viaje = Viaje.objects.select_for_update().get(pk=self.pk)
 
             if viaje.estado != self.Estados.PENDIENTE:
@@ -257,8 +251,7 @@ class Viaje(models.Model):
             )
     
     def clean(self):
-        """
-        Validación de negocio:
+        """Validación de negocio:
         - Un pasajero no puede tener múltiples viajes activos
         """
 
@@ -272,27 +265,8 @@ class Viaje(models.Model):
                 raise ValidationError(
                     "Ya tienes un viaje activo. Completa o cancela antes de solicitar otro."
                 )
-
-    def calcular_distancia(self):
-        """
-        Calcula la distancia entre origen y destino (Haversine).
-        NO guarda automáticamente.
-        """
-        from math import radians, sin, cos, sqrt, atan2
-
-        lat1, lon1 = radians(self.origen_lat), radians(self.origen_lon)
-        lat2, lon2 = radians(self.destino_lat), radians(self.destino_lon)
-
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-
-        return round(6371.0 * c, 2)
-
     def __str__(self):
-        return f"Viaje #{self.id} - {self.pasajero.username} ({self.estado})"
+        return str(self.id)
 
 # =========================
 # OFERTA
@@ -343,39 +317,8 @@ class Oferta(models.Model):
 
             # actualizar disponibilidad
             Mototaxi.objects.filter(conductor=self.mototaxista).update(disponible=False)
-    
-    def calcular_distancia_total(self):
-        """
-        Calcula la distancia total del servicio:
-        - Mototaxista → Origen del viaje
-        - Origen → Destino
-        """
-
-        from .utils import calcular_distancia
-
-        viaje = self.viaje
-        moto = self.mototaxista
-
-        # 1️⃣ Mototaxi → origen
-        d1 = calcular_distancia(
-            moto.lat,
-            moto.lon,
-            viaje.origen_lat,
-            viaje.origen_lon
-        )
-
-        # 2️⃣ Origen → destino
-        d2 = calcular_distancia(
-            viaje.origen_lat,
-            viaje.origen_lon,
-            viaje.destino_lat,
-            viaje.destino_lon
-        )
-
-        return d1 + d2
 
     def save(self, *args, **kwargs):
-        self.distancia_km = self.calcular_distancia_total()
         super().save(*args, **kwargs)
     
     def clean(self):

@@ -8,9 +8,11 @@ from .views import (
     ViajeViewSet,
     PagoViewSet,
     OfertaViewSet,
+    DestinoViewSet,
     RegistroUsuarioAPIView,
     UsuarioActualAPIView,
     CustomTokenObtainPairView,
+    
 )
 
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -22,6 +24,7 @@ router.register('mototaxis', MototaxiViewSet)
 router.register('viajes', ViajeViewSet)
 router.register('pagos', PagoViewSet)
 router.register('ofertas', OfertaViewSet)
+router.register('destino', DestinoViewSet)
 
 urlpatterns = [
     # Usuario autenticado

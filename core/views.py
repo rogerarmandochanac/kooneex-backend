@@ -1,3 +1,5 @@
+import threading
+
 from .utils import calcular_distancia
 from .utils.sockets import enviar_evento
 
@@ -6,7 +8,8 @@ from .serializers import (UsuarioSerializer,
                           ViajeSerializer, 
                           PagoSerializer, 
                           OfertaSerializer,
-                          UsuarioRegistroSerializer
+                          UsuarioRegistroSerializer,
+                          DestinoSerializer,
                         )
 from .permissions import IsAdmin
 from django.db.models import (Prefetch, 
@@ -17,12 +20,15 @@ from .models import (Usuario,
                      Mototaxi, 
                      Viaje, 
                      Pago, 
-                     Oferta
+                     Oferta,
+                     Usuario,
+                     Destino,
                      )
 
 from django.core.exceptions import ValidationError
 
 from core.utils.notificaciones import enviar_notificacion
+from .services import enviar_notificacion_push
 
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -42,6 +48,12 @@ from django.db.models import Q
 
 from django.db import transaction
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+
+
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -52,7 +64,9 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def guardar_token(self, request):
         user = request.user
-        token = request.data.get("token")
+        token = request.data.get("fcm_token")
+
+        Usuario.objects.filter(fcm_token=token).exclude(username=user.username).update(fcm_token=None)
 
         user.fcm_token = token
         user.save()
@@ -168,11 +182,13 @@ class MototaxiViewSet(viewsets.ModelViewSet):
 
         return Response(cercanos)
 
+class DestinoViewSet(viewsets.ModelViewSet):
+    queryset = Destino.objects.all()
+    serializer_class = DestinoSerializer
+    
 class ViajeViewSet(viewsets.ModelViewSet):
-    
-    
     base_queryset = Viaje.objects.select_related(
-        'pasajero', 'mototaxista'
+        'destino', 'pasajero', 'mototaxista'
         
     ).prefetch_related(
         Prefetch('ofertas', queryset=Oferta.objects.select_related('mototaxista').only(
@@ -180,10 +196,17 @@ class ViajeViewSet(viewsets.ModelViewSet):
             'mototaxista__username',
         ))
     ).only(
-        'id', 'estado', 'origen_lat', 'origen_lon', 'destino_lat', 'destino_lon',
-        'cantidad_pasajeros', 'costo_estimado', 'costo_final','pasajero__username', 
-        'mototaxista__id', 'mototaxista__username', 'referencia', 'distancia_km', 
-        'pasajero__foto'
+        'id', 'estado', 'origen_lat', 'origen_lon',
+        'cantidad_pasajeros', 'costo_estimado', 'costo_final',
+        'destino__id',
+        'destino__nombre',
+        'destino__latitud',
+        'destino__longitud',
+        'pasajero__username', 'pasajero__foto',
+        'pasajero__lat', 'pasajero__lon',
+        'mototaxista__id', 'mototaxista__username', 
+        'mototaxista__lat', 'mototaxista__lon',
+        'referencia', 
     )
     
     queryset = base_queryset
@@ -200,7 +223,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
         
         if user.rol == 'pasajero':
             return self.base_queryset.filter(
-                pasajero=user).exclude(estado='completado').order_by('-distancia_km')
+                pasajero=user).exclude(estado='completado')
         
         elif user.rol == 'mototaxista':
             oferta_activa_subquery = Oferta.objects.filter(
@@ -218,31 +241,43 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 return queryset.filter(tiene_oferta_activa=True, estado__in=['aceptado', 'en_curso'])
             
             # Si no, mostrar viajes pendientes
-            return queryset.filter(estado='pendiente').order_by('-distancia_km')
+            return queryset.filter(estado='pendiente')
         
         return Viaje.objects.none()
-    
+        
     def perform_create(self, serializer):
-        """Antes de crear el registro enviamos una notificacion"""
-        viaje = serializer.save(pasajero_id=self.request.user.id)
+        try:
+            """Antes de crear el registro enviamos una notificacion"""
+            viaje = serializer.save(pasajero_id=self.request.user.id)
 
-        # 🔥 Enviar evento por WebSocket
-        print("📤 Enviando a grupo:", "mototaxistas")
-        enviar_evento("mototaxistas", "nuevo_viaje", {"id": viaje.id})
-         # 🔥 Enviar evento por WebSocket
-         
-        # 🔔 PUSH NOTIFICATIONS (nuevo)
-        mototaxistas = Usuario.objects.filter(rol="mototaxi").exclude(fcm_token__isnull=True)
-        for moto in mototaxistas:
-            if moto.fcm_token:
-                try:
-                    enviar_notificacion(
-                        moto.fcm_token,
-                        "Nuevo viaje disponible 🚕",
-                        "Hay un viaje cerca de ti"
-                    )
-                except Exception as e:
-                    print("Error enviando notificación:", e)
+            # 🔥 Enviar evento por WebSocket
+            print("📤 Enviando a grupo:", "mototaxistas")
+            enviar_evento("mototaxistas", "nuevo_viaje", {"id": viaje.id})
+            # 🔥 Enviar evento por WebSocket
+            threading.Thread(target=self.enviar_push_a_conductores,args=(viaje,)).start()
+
+        except Exception as e:
+            raise Exception(f"Error al crear el viaje: {str(e)}")
+    
+    def enviar_push_a_conductores(self, viaje):
+        # Buscamos a los mototaxistas que tengan un token registrado
+        # Filtra aquí por cercanía si ya tienes esa lógica
+        conductores = Usuario.objects.filter(
+            rol="mototaxista", 
+            fcm_token__isnull=False
+        ).exclude(fcm_token="")
+
+        for conductor in conductores:
+            # Usamos la función de firebase-admin
+            enviar_notificacion_push(
+                token_destino=conductor.fcm_token,
+                titulo="¡Nueva solicitud de viaje",
+                cuerpo=f"Nuevo viaje solicitado",
+                datos_extra={
+                    "type": "nueva_solicitud",
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK" # Importante para Android
+                }
+            )
 
     @action(detail=False, methods=['get'])
     def estado_viaje_activo(self, request):
@@ -271,7 +306,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def verificar_viajes_activos(self, request):
         """Versión optimizada"""
         user = request.user
-        
+
         if user.rol == 'pasajero':
             viaje_activo = Viaje.objects.filter(
                 pasajero=user,
@@ -446,8 +481,14 @@ class OfertaViewSet(viewsets.ModelViewSet):
         if user.rol == "mototaxista":
             return self.queryset.filter(mototaxista=user)
         elif user.rol == "pasajero":
-            return self.queryset.filter(viaje__pasajero=user)
+            return self.queryset.filter(viaje__pasajero=user, viaje__estado="pendiente")
         return Oferta.objects.none()
+
+        viaje_id = self.request.query_params.get('viaje_id')
+        if viaje_id:
+            queryset = queryset.filter(viaje_id=viaje_id)
+        
+        return queryset
 
     def perform_create(self, serializer):
         oferta = serializer.save(mototaxista=self.request.user)
@@ -455,7 +496,29 @@ class OfertaViewSet(viewsets.ModelViewSet):
         # 🔥 Enviar evento por WebSocket
         print("📤 Enviando a grupo:", f"viaje_{oferta.viaje.id}")
         enviar_evento(f"viaje_{oferta.viaje.id}", "nueva_oferta", {"id": oferta.viaje.id})
-         # 🔥 Enviar evento por WebSocket
+        # 🔥 Enviar evento por WebSocket
+        self.enviar_push_a_pasajeros(oferta)
+    
+    def enviar_push_a_pasajeros(self, oferta):
+        # Buscamos a los mototaxistas que tengan un token registrado
+        # Filtra aquí por cercanía si ya tienes esa lógica
+        pasajeros = Usuario.objects.filter(
+            rol="pasajero", 
+            fcm_token__isnull=False
+        ).exclude(fcm_token="")
+
+        for pasajero in pasajeros:
+            # Usamos la función de firebase-admin
+            enviar_notificacion_push(
+                token_destino=pasajero.fcm_token,
+                titulo="¡Nueva oferta realizada",
+                cuerpo=f"Ofertado por",
+                datos_extra={
+                    "type": "nueva_solicitud",
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK" # Importante para Android
+                }
+            )
+
         
 
     @action(detail=True, methods=['patch'])

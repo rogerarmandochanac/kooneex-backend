@@ -21,4 +21,4 @@ media/
 .idea/
 *.swp
 
-firebase_key.json
+kooneex-app-firebase-adminsdk.json

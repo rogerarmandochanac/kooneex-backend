@@ -10,6 +10,9 @@ MEDIA_URL = '/media/'
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = BASE_DIR / "media"
 
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Ruta al archivo JSON que descargaste
 FB_CREDENTIALS_PATH = os.path.join(BASE_DIR, 'kooneex-app-firebase-adminsdk.json')
 

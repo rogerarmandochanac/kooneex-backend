@@ -10,6 +10,7 @@ from .models import (Usuario,
                      )
 from math import radians, sin, cos, sqrt, atan2
 from .utils import calcular_distancia, construir_url_imagen
+from django.contrib.auth.password_validation import validate_password
 
 class UsuarioSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.CharField(read_only=True)
@@ -257,4 +258,14 @@ class PagoSerializer(serializers.ModelSerializer):
                   'monto', 
                   'metodo', 
                   'fecha']
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("La contraseña actual es incorrecta.")
+        return value
 

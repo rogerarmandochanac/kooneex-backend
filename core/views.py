@@ -10,6 +10,7 @@ from .serializers import (UsuarioSerializer,
                           OfertaSerializer,
                           UsuarioRegistroSerializer,
                           DestinoSerializer,
+                          ChangePasswordSerializer,
                         )
 from .permissions import IsAdmin
 from django.db.models import (Prefetch, 
@@ -51,6 +52,7 @@ from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 
 
 
@@ -607,3 +609,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({"message": "Contraseña actualizada."}, status=status.HTTP_200_OK)
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+

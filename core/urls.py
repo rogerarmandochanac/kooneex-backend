@@ -12,6 +12,7 @@ from .views import (
     RegistroUsuarioAPIView,
     UsuarioActualAPIView,
     CustomTokenObtainPairView,
+    ChangePasswordView,
     
 )
 
@@ -31,6 +32,8 @@ urlpatterns = [
     path('usuario/', UsuarioActualAPIView.as_view(), name='usuario_actual'),
 
     path("usuarios/registro/", RegistroUsuarioAPIView.as_view(), name="registro"),
+    
+    path('usuarios/cambiar-password/', ChangePasswordView.as_view(), name='cambiar-password'),
 
     # Autenticación JWT
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

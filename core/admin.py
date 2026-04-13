@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Usuario, Mototaxi, Viaje, Comision, Tarifa, Destino
+from .models import Usuario, Mototaxi, Viaje, Comision, Tarifa, Destino, Oferta
 from django.utils import timezone
 
 admin.site.register(Usuario)
@@ -7,6 +7,7 @@ admin.site.register(Mototaxi)
 admin.site.register(Viaje)
 admin.site.register(Tarifa)
 admin.site.register(Destino)
+admin.site.register(Oferta)
 
 @admin.register(Comision)
 class ComisionAdmin(admin.ModelAdmin):

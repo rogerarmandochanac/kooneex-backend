@@ -618,4 +618,13 @@ class ChangePasswordView(APIView):
         print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_version(request):
+    return Response({
+        "version_minima": "1.0.0", # Incrementa esto cuando saques un nuevo APK
+        "url_descarga": "https://tu-enlace-de-drive-o-diawi.com",
+        "novedades": "Se corrigieron errores en el rastreo GPS y notificaciones."
+    }, status=status.HTTP_200_OK)
+
 

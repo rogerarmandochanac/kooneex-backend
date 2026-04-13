@@ -622,7 +622,7 @@ class ChangePasswordView(APIView):
 @permission_classes([AllowAny])
 def check_version(request):
     return Response({
-        "version_minima": "1.0.0", # Incrementa esto cuando saques un nuevo APK
+        "version_minima": "1.0.2", # Incrementa esto cuando saques un nuevo APK
         "url_descarga": "https://drive.google.com/file/d/1J1gyubHBp57Ygt4IAyKT2WPs4d7VZAn8/view?usp=sharing",
         "novedades": "Se corrigieron errores en el rastreo GPS y notificaciones."
     }, status=status.HTTP_200_OK)

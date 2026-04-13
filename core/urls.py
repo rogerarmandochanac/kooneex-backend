@@ -13,6 +13,7 @@ from .views import (
     UsuarioActualAPIView,
     CustomTokenObtainPairView,
     ChangePasswordView,
+    check_version,
     
 )
 
@@ -38,6 +39,8 @@ urlpatterns = [
     # Autenticación JWT
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    path('check_version/', check_version, name='check_version'),
 
     # Endpoints del sistema
     path('', include(router.urls)),

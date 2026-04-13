@@ -7,12 +7,10 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from core.views import CustomTokenObtainPairView
-from .views import check_version
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
-    path('check_version/', check_version, name='check_version'),
 ]
 
 if settings.DEBUG:

@@ -33,7 +33,7 @@ SECRET_KEY = 'django-insecure-sldc92ljym6sxlsk*dz)8x5b7t$y^&1*zmisp8&&9ou=!e(^$v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["*"] if not DEBUG else ['127.0.0.1', 'localhost', '192.168.1.105']
+ALLOWED_HOSTS = ["*"] if not DEBUG else ['127.0.0.1', 'localhost', '3.21.34.42']
 
 if not DEBUG:
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -153,10 +153,11 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# Directorio donde Django buscará archivos estáticos en desarrollo
+STATIC_URL = '/static/'
+# Directorio absoluto donde se guardarán los archivos al ejecutar collectstatic
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

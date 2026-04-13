@@ -502,25 +502,20 @@ class OfertaViewSet(viewsets.ModelViewSet):
         self.enviar_push_a_pasajeros(oferta)
     
     def enviar_push_a_pasajeros(self, oferta):
-        # Buscamos a los mototaxistas que tengan un token registrado
-        # Filtra aquí por cercanía si ya tienes esa lógica
-        pasajeros = Usuario.objects.filter(
-            rol="pasajero", 
-            fcm_token__isnull=False
-        ).exclude(fcm_token="")
-
-        for pasajero in pasajeros:
-            # Usamos la función de firebase-admin
+        
+        pasajero = oferta.viaje.pasajero
+        
+        if pasajero.fcm_token:
             enviar_notificacion_push(
                 token_destino=pasajero.fcm_token,
-                titulo="¡Nueva oferta realizada",
-                cuerpo=f"Ofertado por",
+                titulo="¡Nueva oferta!",
+                cuerpo=f"{oferta.mototaxista.username} ha enviado una oferta para tu viaje",
                 datos_extra={
-                    "type": "nueva_solicitud",
-                    "click_action": "FLUTTER_NOTIFICATION_CLICK" # Importante para Android
+                    "type": "nueva_oferta",
+                    "viaje_id": str(oferta.viaje.id),
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK"
                 }
             )
-
         
 
     @action(detail=True, methods=['patch'])

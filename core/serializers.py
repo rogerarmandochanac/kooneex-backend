@@ -55,7 +55,7 @@ class UsuarioRegistroSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        print(validated_data)
+        #print(validated_data)
         password = validated_data.pop("password")
         user = Usuario.objects.create_user(password=password, **validated_data)
         return user
@@ -181,7 +181,7 @@ class ViajeSerializer(serializers.ModelSerializer):
 
             return round(distancia_recogida + distancia_viaje, 2)
         except Exception as e:
-            print(f"Error en calculo: {e}") # Para que lo veas en consola
+            #print(f"Error en calculo: {e}") # Para que lo veas en consola
             return 0.0
     
     

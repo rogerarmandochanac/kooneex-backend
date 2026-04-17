@@ -14,6 +14,7 @@ from .views import (
     CustomTokenObtainPairView,
     ChangePasswordView,
     check_version,
+    ComunidadViewSet,
     
 )
 
@@ -27,6 +28,7 @@ router.register('viajes', ViajeViewSet)
 router.register('pagos', PagoViewSet)
 router.register('ofertas', OfertaViewSet)
 router.register('destino', DestinoViewSet)
+router.register('comunidades', ComunidadViewSet)
 
 urlpatterns = [
     # Usuario autenticado

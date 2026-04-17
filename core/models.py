@@ -3,6 +3,15 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q, Sum
 
+class Comunidad(models.Model):
+    nombre = models.CharField(max_length=100, unique=True) # Ej: Pomuch, Tenabo
+    activa = models.BooleanField(default=True)
+    creada_en = models.DateTimeField(auto_now_add=True)
+    
+
+    def __str__(self):
+        return self.nombre
+
 # =========================
 # USUARIO
 # =========================
@@ -11,6 +20,13 @@ class Usuario(AbstractUser):
     """
     Modelo de usuario personalizado con roles.
     """
+    comunidad = models.ForeignKey(
+        Comunidad, 
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True, # Protegemos para no borrar comunidades con viajes
+        related_name='usuarios_pertenecientes'
+    )
 
     class Roles(models.TextChoices):
         ADMIN = 'admin', 'Administrador'
@@ -112,6 +128,13 @@ class Destino(models.Model):
     nombre = models.CharField(max_length=100)
     latitud = models.DecimalField(max_digits=9, decimal_places=6)
     longitud = models.DecimalField(max_digits=9, decimal_places=6)
+    comunidad = models.ForeignKey(
+        Comunidad, 
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True, # Protegemos para no borrar comunidades con viajes
+        related_name='destinos_disponibles'
+    )
 
     def __str__(self):
         return self.nombre
@@ -152,6 +175,13 @@ class Viaje(models.Model):
     costo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=20, choices=Estados.choices, default=Estados.PENDIENTE)
     creado_en = models.DateTimeField(auto_now_add=True)
+    comunidad = models.ForeignKey(
+        Comunidad, 
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True, # Protegemos para no borrar comunidades con viajes
+        related_name='viajes_realizados'
+    )
 
     class Meta:
         ordering = ['-creado_en']

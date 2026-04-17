@@ -11,6 +11,7 @@ from .serializers import (UsuarioSerializer,
                           UsuarioRegistroSerializer,
                           DestinoSerializer,
                           ChangePasswordSerializer,
+                          ComunidadSerializer,
                         )
 from .permissions import IsAdmin
 from django.db.models import (Prefetch, 
@@ -24,6 +25,7 @@ from .models import (Usuario,
                      Oferta,
                      Usuario,
                      Destino,
+                     Comunidad,
                      )
 
 from django.core.exceptions import ValidationError
@@ -188,6 +190,16 @@ class DestinoViewSet(viewsets.ModelViewSet):
     queryset = Destino.objects.all()
     serializer_class = DestinoSerializer
     
+    def get_queryset(self):
+        user = self.request.user
+        
+        # Si el usuario no tiene comunidad asignada, no ve destinos
+        if not user.comunidad:
+            return Destino.objects.none()
+            
+        # Filtramos los destinos que pertenecen a la comunidad del usuario
+        return Destino.objects.filter(comunidad=user.comunidad)
+    
 class ViajeViewSet(viewsets.ModelViewSet):
     base_queryset = Viaje.objects.select_related(
         'destino', 'pasajero', 'mototaxista'
@@ -223,6 +235,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
+        if not user.comunidad:
+            return Viaje.objects.none()
+        
         if user.rol == 'pasajero':
             return self.base_queryset.filter(
                 pasajero=user).exclude(estado='completado')
@@ -234,7 +249,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 aceptada=True
             ).values('id')
             
-            queryset = self.base_queryset.annotate(
+            queryset = self.base_queryset.filter(comunidad=user.comunidad).annotate(
                 tiene_oferta_activa=Exists(oferta_activa_subquery)
             )
             
@@ -250,11 +265,11 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         try:
             """Antes de crear el registro enviamos una notificacion"""
-            viaje = serializer.save(pasajero_id=self.request.user.id)
+            viaje = serializer.save(pasajero_id=self.request.user.id, comunidad=self.request.user.comunidad)
 
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", "mototaxistas")
-            enviar_evento("mototaxistas", "nuevo_viaje", {"id": viaje.id})
+            sala_comunidad = f"mototaxistas_{viaje.comunidad.nombre.lower()}"
+            enviar_evento(sala_comunidad, "nuevo_viaje", {"id": viaje.id})
             # 🔥 Enviar evento por WebSocket
             threading.Thread(target=self.enviar_push_a_conductores,args=(viaje,)).start()
 
@@ -265,7 +280,8 @@ class ViajeViewSet(viewsets.ModelViewSet):
         # Buscamos a los mototaxistas que tengan un token registrado
         # Filtra aquí por cercanía si ya tienes esa lógica
         conductores = Usuario.objects.filter(
-            rol="mototaxista", 
+            rol="mototaxista",
+            comunidad=viaje.comunidad, 
             fcm_token__isnull=False
         ).exclude(fcm_token="")
 
@@ -463,6 +479,22 @@ class ViajeViewSet(viewsets.ModelViewSet):
             return Response({
                 "mensaje": f"Viaje #{viaje.id} completado correctamente."
             }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'])
+    def historial(self, request):
+        user = request.user
+        
+        # Verificamos si el usuario tiene perfil de mototaxista
+        # (Ajusta 'is_mototaxista' según como manejes los roles en tu modelo User)
+        if hasattr(user, 'mototaxista'): 
+            # Si es mototaxista, vemos los viajes que él realizó
+            viajes = Viaje.objects.filter(mototaxista=user).order_by('-creado_en')[:10]
+        else:
+            # Si no, vemos los viajes que pidió como pasajero
+            viajes = Viaje.objects.filter(pasajero=user).order_by('-creado_en')[:10]
+
+        serializer = ViajeSerializer(viajes, many=True, context={'request': request})
+        return Response(serializer.data)
        
 class OfertaViewSet(viewsets.ModelViewSet):
     queryset = Oferta.objects.select_related(
@@ -484,8 +516,9 @@ class OfertaViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(mototaxista=user)
         elif user.rol == "pasajero":
             return self.queryset.filter(viaje__pasajero=user, viaje__estado="pendiente")
-        return Oferta.objects.none()
-
+        else:
+            return Oferta.objects.none()
+    
         viaje_id = self.request.query_params.get('viaje_id')
         if viaje_id:
             queryset = queryset.filter(viaje_id=viaje_id)
@@ -626,5 +659,18 @@ def check_version(request):
         "url_descarga": "https://drive.google.com/file/d/1J1gyubHBp57Ygt4IAyKT2WPs4d7VZAn8/view?usp=sharing",
         "novedades": "Se corrigieron errores en el rastreo GPS y notificaciones."
     }, status=status.HTTP_200_OK)
+
+class ComunidadViewSet(viewsets.ModelViewSet):
+    queryset = Comunidad.objects.all()
+    serializer_class = ComunidadSerializer
+
+    def get_permissions(self):
+        """
+        Permitimos que cualquier usuario (incluso no logueado) vea la lista
+        para que pueda elegir su comunidad al registrarse.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
 
 

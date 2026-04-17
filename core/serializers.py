@@ -7,6 +7,7 @@ from .models import (Usuario,
                      Oferta,
                      Tarifa,
                      Destino,
+                     Comunidad,
                      )
 from math import radians, sin, cos, sqrt, atan2
 from .utils import calcular_distancia, construir_url_imagen
@@ -35,18 +36,20 @@ class UsuarioRegistroSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "telefono",
+            "email",
             "rol",
             "foto",
+            "comunidad",
         ]
         extra_kwargs = {
-            "password": {"write_only": True}
+            "password": {"write_only": True},
+            "email": {"required": True}
         }
 
     def create(self, validated_data):
+        print(validated_data)
         password = validated_data.pop("password")
-        user = Usuario(**validated_data)
-        user.set_password(password)
-        user.save()
+        user = Usuario.objects.create_user(password=password, **validated_data)
         return user
 
 class MototaxiSerializer(serializers.ModelSerializer):
@@ -121,6 +124,7 @@ class ViajeSerializer(serializers.ModelSerializer):
     destino_id = serializers.PrimaryKeyRelatedField(queryset=Destino.objects.all(),source='destino',write_only=True)
     destino = DestinoSerializer(read_only=True)
     distancia_total_km = serializers.SerializerMethodField()
+    fecha_formateada = serializers.SerializerMethodField()
 
     class Meta:
         model = Viaje
@@ -129,9 +133,17 @@ class ViajeSerializer(serializers.ModelSerializer):
             'cantidad_pasajeros', 'costo_estimado', 'costo_final', 'estado', 
             'pasajero_nombre', 'mototaxista_nombre', 'ofertas_count', 'ofertas',
             'referencia', 'pasajero_foto', 'pasajero_telefono', 
-            'conductor_lat', 'conductor_lon', 'pasajero_lat', 'pasajero_lon', 'distancia_total_km',
+            'conductor_lat', 'conductor_lon', 'pasajero_lat', 'pasajero_lon', 'distancia_total_km', 'fecha_formateada',
         ]
         read_only_fields = ['pasajero']
+    
+    def get_fecha_formateada(self, obj):
+        # Usamos el campo 'creado_en' que ya tienes en el modelo
+        if obj.creado_en:
+            # Formato: 16 Abr, 05:30 PM
+            # %d = día, %b = mes abreviado, %I = hora 12h, %M = min, %p = AM/PM
+            return obj.creado_en.strftime("%d %b, %I:%M %p")
+        return None
     
     def get_distancia_total_km(self, obj):
         try:
@@ -268,4 +280,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError("La contraseña actual es incorrecta.")
         return value
+
+
+class ComunidadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comunidad
+        fields = ['id', 'nombre']
 

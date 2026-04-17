@@ -720,7 +720,7 @@ def check_version(request):
     return Response({
         "version_minima": "1.0.2", # Incrementa esto cuando saques un nuevo APK
         "url_descarga": "https://drive.google.com/file/d/1EDDwcEHyZt5JhLyu84Wl0EnAw19qyWrI/view?usp=sharing",
-        "novedades": "¡Kooneex sigue mejorando para ti! En esta actualización hemos añadido el Historial de Viajes para que lleves el control de tus rutas y un nuevo Panel de Perfil para que personalices tu cuenta. Además, ya puedes Calificar tus Viajes, ayudándonos a mantener la mejor calidad en el servicio. ¿Tienes dudas? Visita nuestra nueva sección de Ayuda. ¡Gracias por moverte con Keru!"
+        "novedades": "¡Kooneex sigue mejorando para ti! En esta actualización hemos añadido el Historial de Viajes para que lleves el control de tus rutas y un nuevo Panel de Perfil para que personalices tu cuenta. Además, ya puedes Calificar tus Viajes, ayudándonos a mantener la mejor calidad en el servicio. ¿Tienes dudas? Visita nuestra nueva sección de Ayuda. ¡Gracias por moverte con kooneex!"
     }, status=status.HTTP_200_OK)
 
 class ComunidadViewSet(viewsets.ModelViewSet):

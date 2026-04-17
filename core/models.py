@@ -7,6 +7,7 @@ from django.db.models import Q, Sum
 from PIL import Image
 from django.db import models
 from django.core.files.base import ContentFile
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Comunidad(models.Model):
     nombre = models.CharField(max_length=100, unique=True) # Ej: Pomuch, Tenabo
@@ -481,3 +482,17 @@ class Comision(models.Model):
     def __str__(self):
         estado = "PAGADO" if self.pagado else "PENDIENTE"
         return f"{self.mototaxista.username} - ${self.monto_comision} ({estado})"
+
+class Calificacion(models.Model):
+    viaje = models.OneToOneField('Viaje', on_delete=models.CASCADE, related_name='calificacion')
+    pasajero = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_dadas')
+    mototaxista = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_recibidas')
+    
+    puntuacion = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comentario = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.puntuacion} estrellas para {self.mototaxista.username}"

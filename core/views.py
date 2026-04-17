@@ -28,6 +28,7 @@ from .models import (Usuario,
                      Usuario,
                      Destino,
                      Comunidad,
+                     Calificacion,
                      )
 
 from django.core.exceptions import ValidationError
@@ -266,6 +267,12 @@ class ViajeViewSet(viewsets.ModelViewSet):
         if not user.comunidad:
             return Viaje.objects.none()
         
+        if self.action == 'calificar':
+            return self.base_queryset.filter(
+                pasajero=user,
+                comunidad=user.comunidad
+            )
+        
         if user.rol == 'pasajero':
             return self.base_queryset.filter(
                 pasajero=user).exclude(estado='completado')
@@ -324,6 +331,32 @@ class ViajeViewSet(viewsets.ModelViewSet):
                     "click_action": "FLUTTER_NOTIFICATION_CLICK" # Importante para Android
                 }
             )
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def calificar(self, request, pk=None):
+        viaje = self.get_object()
+        
+        # Validaciones de seguridad
+        if viaje.pasajero != request.user:
+            return Response({"error": "Solo el pasajero del viaje puede calificar"}, status=403)
+        
+        if viaje.estado != 'completado':
+            return Response({"error": "Solo puedes calificar viajes finalizados"}, status=400)
+
+        puntuacion = request.data.get('puntuacion')
+        comentario = request.data.get('comentario', '')
+
+        calificacion, created = Calificacion.objects.update_or_create(
+            viaje=viaje,
+            defaults={
+                'pasajero': viaje.pasajero,
+                'mototaxista': viaje.mototaxista,
+                'puntuacion': puntuacion,
+                'comentario': comentario,
+            }
+        )
+
+        return Response({"message": "Calificación guardada con éxito"}, status=201)
 
     @action(detail=False, methods=['get'])
     def estado_viaje_activo(self, request):
@@ -523,6 +556,8 @@ class ViajeViewSet(viewsets.ModelViewSet):
 
         serializer = ViajeSerializer(viajes, many=True, context={'request': request})
         return Response(serializer.data)
+    
+   
        
 class OfertaViewSet(viewsets.ModelViewSet):
     queryset = Oferta.objects.select_related(

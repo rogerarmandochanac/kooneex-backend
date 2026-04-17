@@ -28,6 +28,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
                   'email',
                   ]
         read_only_fields = ['username', 'rol']
+    
+    def get_promedio_estrellas(self, obj):
+        if obj.rol == 'mototaxista':
+            promedio = obj.calificaciones_recibidas.aggregate(Avg('puntuacion'))['puntuacion__avg']
+            return round(promedio, 1) if promedio else 5.0
+        return None
 
 class UsuarioRegistroSerializer(serializers.ModelSerializer):
     class Meta:

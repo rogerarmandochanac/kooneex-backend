@@ -18,6 +18,7 @@ def enviar_notificacion_push(token_destino, titulo, cuerpo, datos_extra=None):
     
     try:
         response = messaging.send(message)
-        print('Successfully sent message:', response)
+        #print('Successfully sent message:', response)
     except Exception as e:
-        print('Error sending message:', e)
+        response = messaging.send(message)
+        #print('Error sending message:', e)

@@ -37,7 +37,7 @@ class ViajeConsumer(AsyncJsonWebsocketConsumer):
         self.viaje_id = self.scope["url_route"]["kwargs"]["viaje_id"]
         self.group_name = f"viaje_{self.viaje_id}"
 
-        print("🔌 WS conectado al grupo:", self.group_name)
+        #print("🔌 WS conectado al grupo:", self.group_name)
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name

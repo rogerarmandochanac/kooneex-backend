@@ -492,7 +492,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
             viaje.eliminar()
             
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", "mototaxistas")
+            #print("📤 Enviando a grupo:", "mototaxistas")
             enviar_evento("mototaxistas", "cancelar_viaje", {"id": viaje.id})
             # 🔥 Enviar evento por WebSocket
         
@@ -514,7 +514,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
             viaje.iniciar()
 
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", f"viaje_{viaje.id}")
+            #print("📤 Enviando a grupo:", f"viaje_{viaje.id}")
             enviar_evento(f"viaje_{viaje.id}", "viaje_en_curso", {"id": viaje.id})
             # 🔥 Enviar evento por WebSocket
         
@@ -531,7 +531,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
 
 
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", f"viaje_{viaje.id}")
+            #print("📤 Enviando a grupo:", f"viaje_{viaje.id}")
             enviar_evento(f"viaje_{viaje.id}", "viaje_completado", {"id": viaje.id})
             # 🔥 Enviar evento por WebSocket
 
@@ -592,7 +592,7 @@ class OfertaViewSet(viewsets.ModelViewSet):
         oferta = serializer.save(mototaxista=self.request.user)
         
         # 🔥 Enviar evento por WebSocket
-        print("📤 Enviando a grupo:", f"viaje_{oferta.viaje.id}")
+        #print("📤 Enviando a grupo:", f"viaje_{oferta.viaje.id}")
         enviar_evento(f"viaje_{oferta.viaje.id}", "nueva_oferta", {"id": oferta.viaje.id})
         # 🔥 Enviar evento por WebSocket
         self.enviar_push_a_pasajeros(oferta)
@@ -629,7 +629,7 @@ class OfertaViewSet(viewsets.ModelViewSet):
             oferta.aceptar()
 
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", f"viaje_{oferta.viaje.id}")
+            #print("📤 Enviando a grupo:", f"viaje_{oferta.viaje.id}")
             enviar_evento(f"viaje_{oferta.viaje.id}", "oferta_aceptada", {"id": oferta.id})
             # 🔥 Enviar evento por WebSocket
 
@@ -651,7 +651,7 @@ class OfertaViewSet(viewsets.ModelViewSet):
             oferta = Oferta.objects.filter(viaje=pk, mototaxista=user).delete()
             
             # 🔥 Enviar evento por WebSocket
-            print("📤 Enviando a grupo:", f"viaje_{pk}")
+            #print("📤 Enviando a grupo:", f"viaje_{pk}")
             enviar_evento(f"viaje_{pk}", "oferta_cancelada", {"oferta_id": pk, "mototaxista": user.username,})
             # 🔥 Enviar evento por WebSocket
             
@@ -711,14 +711,14 @@ class ChangePasswordView(APIView):
             user.set_password(serializer.validated_data['new_password'])
             user.save()
             return Response({"message": "Contraseña actualizada."}, status=status.HTTP_200_OK)
-        print(serializer.errors)
+        #print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def check_version(request):
     return Response({
-        "version_minima": "1.0.0", # Incrementa esto cuando saques un nuevo APK
+        "version_minima": "1.0.2", # Incrementa esto cuando saques un nuevo APK
         "url_descarga": "https://drive.google.com/file/d/1J1gyubHBp57Ygt4IAyKT2WPs4d7VZAn8/view?usp=sharing",
         "novedades": "Se corrigieron errores en el rastreo GPS y notificaciones."
     }, status=status.HTTP_200_OK)

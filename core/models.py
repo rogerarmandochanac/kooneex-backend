@@ -1,7 +1,12 @@
+import io
+
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q, Sum
+from PIL import Image
+from django.db import models
+from django.core.files.base import ContentFile
 
 class Comunidad(models.Model):
     nombre = models.CharField(max_length=100, unique=True) # Ej: Pomuch, Tenabo
@@ -49,9 +54,39 @@ class Usuario(AbstractUser):
             models.Index(fields=['username']),
             models.Index(fields=['rol']),
         ]
+    
+    def save(self, *args, **kwargs):
+        # 1. Verificar si hay una foto nueva o modificada
+        if self.foto:
+            try:
+                # Abrir la imagen con Pillow
+                img = Image.open(self.foto)
+
+                # Si es muy pesada o grande, procesamos
+                if img.height > 600 or img.width > 600 or self.foto.file.size > 200 * 1024:
+                    # Convertir a RGB (necesario para JPEG)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+
+                    # Redimensionar manteniendo aspecto proporcional
+                    output_size = (600, 600)
+                    img.thumbnail(output_size)
+
+                    # Guardar en buffer con compresión
+                    buffer = io.BytesIO()
+                    img.save(buffer, format='JPEG', quality=60) # Calidad optimizada
+                    buffer.seek(0)
+
+                    # Reemplazar el archivo
+                    self.foto.save(self.foto.name, ContentFile(buffer.read()), save=False)
+            except Exception as e:
+                print(f"Error al comprimir imagen: {e}")
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.username} ({self.rol})"
+    
+    
 
     @property
     def nombre_completo(self):

@@ -25,7 +25,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
                   'rol', 
                   'telefono',
                   'foto',
+                  'email',
                   ]
+        read_only_fields = ['username', 'rol']
 
 class UsuarioRegistroSerializer(serializers.ModelSerializer):
     class Meta:

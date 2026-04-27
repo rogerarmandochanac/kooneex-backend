@@ -4,12 +4,17 @@ from django.utils import timezone
 from django.db.models import Count
 
 admin.site.register(Mototaxi)
-admin.site.register(Viaje)
 admin.site.register(Tarifa)
 admin.site.register(Destino)
 admin.site.register(Oferta)
 admin.site.register(Comunidad)
 admin.site.register(Calificacion)
+
+@admin.register(Viaje)
+class ViajeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'pasajero__username', 'mototaxista__username','referencia', 'destino')
+    list_filter = ('pasajero__username', 'mototaxista__username')
+    search_fields = ('pasajero__username', 'mototaxista__username', 'destino__nombre')
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):

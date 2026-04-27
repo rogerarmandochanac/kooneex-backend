@@ -1,8 +1,8 @@
 from django.contrib import admin
 from .models import Usuario, Mototaxi, Viaje, Comision, Tarifa, Destino, Oferta, Comunidad, Calificacion
 from django.utils import timezone
+from django.db.models import Count
 
-admin.site.register(Usuario)
 admin.site.register(Mototaxi)
 admin.site.register(Viaje)
 admin.site.register(Tarifa)
@@ -10,6 +10,32 @@ admin.site.register(Destino)
 admin.site.register(Oferta)
 admin.site.register(Comunidad)
 admin.site.register(Calificacion)
+
+@admin.register(Usuario)
+class UsuarioAdmin(admin.ModelAdmin):
+    list_display = ('username', 'first_name', 'last_name', 'telefono', 'rol')
+    list_filter = ('rol',)
+    search_fields = ('username', 'first_name', 'last_name', 'email')
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+
+        conteo_roles = Usuario.objects.values('rol').annotate(total=Count('rol'))
+
+        resumen = {
+            'Mototaxista': 0,
+            'Pasajero': 0
+        }
+
+        for item in conteo_roles:
+            if item['rol'] == 'Mototaxista':
+                resumen['Mototaxista'] = item['total']
+            elif item['rol'] == 'Pasajero':
+                resumen['Pasajero'] = item['total']
+
+        extra_context['resumen_roles'] = resumen
+
+        return super().changelist_view(request, extra_context=extra_context)
 
 @admin.register(Comision)
 class ComisionAdmin(admin.ModelAdmin):

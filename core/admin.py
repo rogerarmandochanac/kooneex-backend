@@ -6,9 +6,15 @@ from django.db.models import Count
 admin.site.register(Mototaxi)
 admin.site.register(Tarifa)
 admin.site.register(Destino)
-admin.site.register(Oferta)
 admin.site.register(Comunidad)
 admin.site.register(Calificacion)
+
+
+@admin.register(Oferta)
+class OfertaAdmin(admin.ModelAdmin):
+    list_display = ('viaje_id', 'mototaxista__username', 'viaje__pasajero__username','monto')
+    list_filter = ('viaje_id', 'monto', 'mototaxista__username')
+    search_fields = ('mototaxista__username', 'monto')
 
 @admin.register(Viaje)
 class ViajeAdmin(admin.ModelAdmin):

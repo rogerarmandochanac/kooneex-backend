@@ -140,6 +140,12 @@ class RegistroUsuarioAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
+        rol = request.data.get('rol')
+        if rol == 'mototaxista':
+            return response.Response(
+                {"error": "El registro de mototaxistas debe ser realizado por un admin."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         serializer = UsuarioRegistroSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()

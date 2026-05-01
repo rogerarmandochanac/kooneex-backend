@@ -8,6 +8,7 @@ from PIL import Image
 from django.db import models
 from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator, MaxValueValidator
+from rest_framework.decorators import action
 
 class Comunidad(models.Model):
     nombre = models.CharField(max_length=100, unique=True) # Ej: Pomuch, Tenabo
@@ -234,6 +235,7 @@ class Viaje(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+    
 
     def aceptar(self, mototaxista):
         """Permite a un mototaxista aceptar un viaje.
@@ -331,6 +333,7 @@ class Viaje(models.Model):
                 raise ValidationError(
                     "Ya tienes un viaje activo. Completa o cancela antes de solicitar otro."
                 )
+    
     def __str__(self):
         return str(self.id)
 

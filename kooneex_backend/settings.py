@@ -33,7 +33,7 @@ SECRET_KEY = 'django-insecure-sldc92ljym6sxlsk*dz)8x5b7t$y^&1*zmisp8&&9ou=!e(^$v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["*"] if not DEBUG else ['127.0.0.1', 'localhost', '3.21.34.42', '192.168.1.103']
+ALLOWED_HOSTS = ["3.21.34.42"] if not DEBUG else ["*"]
 
 if not DEBUG:
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

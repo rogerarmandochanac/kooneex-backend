@@ -29,6 +29,7 @@ from .models import (Usuario,
                      Destino,
                      Comunidad,
                      Calificacion,
+                     Tarifa,
                      )
 
 from django.core.exceptions import ValidationError
@@ -338,6 +339,37 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 }
             )
     
+    @action(detail=False, methods=['get'])
+    def contador_deuda(self, request):
+        user = request.user
+        
+        # 1. Obtenemos la tarifa activa para conocer el límite de deuda
+        tarifa_activa = Tarifa.objects.filter(activa=True).last()
+        limite_deuda = tarifa_activa.limite_deuda if tarifa_activa else 50.0 # Valor por defecto
+        
+        # 2. Contamos cuántas comisiones debe el mototaxista (pagado=False)
+        # Usamos la relación 'mis_comisiones' definida en tu modelo Usuario
+        comisiones_pendientes = user.mis_comisiones.filter(pagado=False).count()
+        
+        # 3. Calculamos el monto total que debe actualmente
+        # Usamos la propiedad que ya tienes en el modelo Usuario[cite: 1]
+        deuda_actual = user.deuda_total
+        
+        # 4. Determinamos el "Total" de viajes permitidos según el costo de comisión fijo
+        # Si la comisión es de $1 y el límite es $50, el total es 50.
+        comision_por_viaje = tarifa_activa.comision if tarifa_activa else 1
+        maximo_viajes_permitidos = int(limite_deuda / comision_por_viaje)
+
+        return Response({
+            "viajes_realizados": comisiones_pendientes,
+            "limite_viajes": maximo_viajes_permitidos,
+            "comision_por_viaje":tarifa_activa.comision,
+            "deuda_actual": deuda_actual,
+            "limite_monto": limite_deuda,
+            "formato": f"{comisiones_pendientes} de {maximo_viajes_permitidos}",
+            "mensaje": "Viajes con comisión pendiente antes del bloqueo"
+        })
+        
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def calificar(self, request, pk=None):
         viaje = self.get_object()

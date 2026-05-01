@@ -650,7 +650,7 @@ class OfertaViewSet(viewsets.ModelViewSet):
             monto = f"${oferta.monto}"
             tiempo = f"{oferta.tiempo_estimado} min"
             titulo = f"🛺 ¡Nueva oferta de {mototaxista}!"
-            cuerpo = f"Te ofrece el viaje por ${monto} y llega en {tiempo}."
+            cuerpo = f"Te ofrece el viaje por {monto} y llega en {tiempo}."
             enviar_notificacion_push(
                 token_destino=pasajero.fcm_token,
                 titulo=titulo,

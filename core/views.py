@@ -326,13 +326,19 @@ class ViajeViewSet(viewsets.ModelViewSet):
             comunidad=viaje.comunidad, 
             fcm_token__isnull=False
         ).exclude(fcm_token="")
+        
+        nombre_pasajero = viaje.pasajero.username if viaje.pasajero else "Alguien"
+        destino_nombre = viaje.destino.nombre if viaje.destino else "Destino no especificado"
+        
+        titulo = f"🛺 Nueva solicitud de {nombre_pasajero}"
+        cuerpo = f"Destino: {destino_nombre} | Est. ${viaje.costo_estimado}"
 
         for conductor in conductores:
             # Usamos la función de firebase-admin
             enviar_notificacion_push(
                 token_destino=conductor.fcm_token,
-                titulo="¡Nueva solicitud de viaje",
-                cuerpo=f"Nuevo viaje solicitado",
+                titulo=titulo,
+                cuerpo=cuerpo,
                 datos_extra={
                     "type": "nueva_solicitud",
                     "click_action": "FLUTTER_NOTIFICATION_CLICK" # Importante para Android

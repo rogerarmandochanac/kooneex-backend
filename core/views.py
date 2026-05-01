@@ -646,10 +646,15 @@ class OfertaViewSet(viewsets.ModelViewSet):
         pasajero = oferta.viaje.pasajero
         
         if pasajero.fcm_token:
+            mototaxista = oferta.mototaxista.username
+            monto = f"${oferta.monto}"
+            tiempo = f"{oferta.tiempo_estimado} min"
+            titulo = f"🛺 ¡Nueva oferta de {mototaxista}!"
+            cuerpo = f"Te ofrece el viaje por ${monto} y llega en {tiempo}."
             enviar_notificacion_push(
                 token_destino=pasajero.fcm_token,
-                titulo="¡Nueva oferta!",
-                cuerpo=f"{oferta.mototaxista.username} ha enviado una oferta para tu viaje",
+                titulo=titulo,
+                cuerpo=cuerpo,
                 datos_extra={
                     "type": "nueva_oferta",
                     "viaje_id": str(oferta.viaje.id),

@@ -238,7 +238,7 @@ class DestinoViewSet(viewsets.ModelViewSet):
     
 class ViajeViewSet(viewsets.ModelViewSet):
     base_queryset = Viaje.objects.select_related(
-        'destino', 'pasajero', 'mototaxista'
+        'origen', 'destino', 'pasajero', 'mototaxista'
         
     ).prefetch_related(
         Prefetch('ofertas', queryset=Oferta.objects.select_related('mototaxista').only(
@@ -246,7 +246,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
             'mototaxista__username',
         ))
     ).only(
-        'id', 'estado', 'origen_lat', 'origen_lon',
+        'id', 'estado', 'origen_lat', 'origen_lon', 'origen__nombre',
         'cantidad_pasajeros', 'costo_estimado', 'costo_final',
         'destino__id',
         'destino__nombre',
@@ -520,6 +520,27 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 {"error": e.message},
                 status=status.HTTP_400_BAD_REQUEST
             )
+    @action(detail=True, methods=['post'])
+    def cancelar(self, request, pk=None):
+        viaje = self.get_object()
+        
+        # Verificamos que el viaje no esté ya finalizado o cancelado
+        if viaje.status in ['finalizado', 'cancelado']:
+            return Response(
+                {'error': f'No se puede cancelar un viaje en estado {viaje.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Actualizamos el estado
+        viaje.status = 'cancelado'
+        viaje.save()[cite: 1]
+
+        # --- NOTIFICAR VÍA SOCKETS ---
+        # Esto permite que la pantalla "SolicitudesScreen" de Flutter 
+        # se actualice sola gracias al escucha que ya tienes configurado.
+        enviar_evento("mototaxistas", "cancelar_viaje", {"id": viaje.id})
+
+        return Response({'status': 'viaje cancelado'}, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['delete'])
     def eliminar(self, request, pk=None):

@@ -129,7 +129,10 @@ class ViajeSerializer(serializers.ModelSerializer):
     conductor_lon = serializers.ReadOnlyField(source='mototaxista.lon')
     pasajero_lat = serializers.ReadOnlyField(source='pasajero.lat')
     pasajero_lon = serializers.ReadOnlyField(source='pasajero.lon')
+    origen_id = serializers.PrimaryKeyRelatedField(queryset=Destino.objects.all(), source='origen', write_only=True)
     destino_id = serializers.PrimaryKeyRelatedField(queryset=Destino.objects.all(),source='destino',write_only=True)
+    origen_nombre = serializers.ReadOnlyField(source='origen.nombre')
+    destino_nombre = serializers.ReadOnlyField(source='destino.nombre')
     destino = DestinoSerializer(read_only=True)
     distancia_total_km = serializers.SerializerMethodField()
     fecha_formateada = serializers.SerializerMethodField()
@@ -137,7 +140,7 @@ class ViajeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Viaje
         fields = [
-            'id', 'origen_lat', 'origen_lon', 'destino', 'destino_id',
+            'id', 'origen_lat', 'origen_lon', 'origen_id', 'origen_nombre','destino', 'destino_id','destino_nombre',
             'cantidad_pasajeros', 'costo_estimado', 'costo_final', 'estado', 
             'pasajero_nombre', 'mototaxista_nombre', 'ofertas_count', 'ofertas',
             'referencia', 'pasajero_foto', 'pasajero_telefono', 

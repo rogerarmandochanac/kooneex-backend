@@ -188,6 +188,7 @@ class Viaje(models.Model):
         ACEPTADO = 'aceptado', 'Aceptado'
         EN_CURSO = 'en_curso', 'En curso'
         COMPLETADO = 'completado', 'Completado'
+        CANCELADO = 'cancelado', 'Cancelado'
         RECHAZADO = 'rechazado', 'Rechazado'
 
     pasajero = models.ForeignKey(
@@ -205,6 +206,7 @@ class Viaje(models.Model):
     )
     origen_lat = models.DecimalField(max_digits=9, decimal_places=6)
     origen_lon = models.DecimalField(max_digits=9, decimal_places=6)
+    origen = models.ForeignKey(Destino, on_delete=models.CASCADE, related_name="viajes_como_origen")
     destino = models.ForeignKey(Destino, on_delete=models.CASCADE, related_name="viajes")
     cantidad_pasajeros = models.PositiveIntegerField(default=1)
     referencia = models.CharField(max_length=100)

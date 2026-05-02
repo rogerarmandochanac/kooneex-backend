@@ -286,6 +286,14 @@ class Viaje(models.Model):
             raise ValidationError("No se puede eliminar este viaje.")
         self.delete()
     
+    def cancelar(self):
+        if self.estado not in ["pendiente", "cancelado", "aceptado"]:
+            raise ValidationError("No se puede cancelar el viaje")
+            
+        with transaction.atomic():
+            self.estado = "cancelado"
+            self.save()
+    
     def completar(self, usuario):
         if self.estado not in ["en_curso", "aceptado"]:
             raise ValidationError("Estado inválido.")

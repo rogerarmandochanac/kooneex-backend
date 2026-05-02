@@ -523,22 +523,22 @@ class ViajeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def cancelar(self, request, pk=None):
         viaje = self.get_object()
+        user = request.user
         
-        # Verificamos que el viaje no esté ya finalizado o cancelado
-        if viaje.status in ['finalizado', 'cancelado']:
+        if user != viaje.pasajero and user.rol != 'admin':
             return Response(
-                {'error': f'No se puede cancelar un viaje en estado {viaje.status}'},
+                {"error": "No tienes permiso para eliminar este viaje."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        try:
+            viaje.cancelar()
+            enviar_evento("mototaxistas", "cancelar_viaje", {"id": viaje.id})
+    
+        except ValidationError as e:
+            return Response(
+                {"error": e.message},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        # Actualizamos el estado
-        viaje.status = 'cancelado'
-        viaje.save()[cite: 1]
-
-        # --- NOTIFICAR VÍA SOCKETS ---
-        # Esto permite que la pantalla "SolicitudesScreen" de Flutter 
-        # se actualice sola gracias al escucha que ya tienes configurado.
-        enviar_evento("mototaxistas", "cancelar_viaje", {"id": viaje.id})
 
         return Response({'status': 'viaje cancelado'}, status=status.HTTP_200_OK)
     
